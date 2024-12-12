@@ -9,6 +9,8 @@ This project provides a REST API for managing users, posts, and tags with functi
 3. [Setup Instructions](#setup-instructions)
 4. [Access Swagger UI](#access-swagger-ui)
 5. [Using Swagger UI](#using-swagger-ui)
+6. [Preloading in GORM](#preloading-in-gorm)
+7. [Notes](#notes)
 
 ## Technologies Used
 ![Go](https://img.shields.io/badge/Language-Go-blue) ![Gin](https://img.shields.io/badge/Framework-Gin-brightgreen) ![GORM](https://img.shields.io/badge/ORM-GORM-blue) ![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-blue) ![Swagger](https://img.shields.io/badge/API-Swagger-orange) ![Docker](https://img.shields.io/badge/Docker-Enabled-blue) ![Docker Compose](https://img.shields.io/badge/Docker%20Compose-Used-blueviolet)
@@ -163,6 +165,46 @@ POST /api/v1/posts/1/tags/1
   "message": "Tag added to post"
 }
 ```
+## Preloading in GORM
+The code uses GORM's `Preload` method to efficiently load related data for models. Preloading helps reduce the number of queries by loading relationships in advance.
+
+**Example: Preloading in Action**
+Consider the function `getUsers`:
+
+```go
+func getUsers(c *gin.Context) {
+    var users []User
+    if err := db.Preload("Posts.Tags").Find(&users).Error; err != nil {
+        respondWithError(c, http.StatusInternalServerError, "Error fetching users")
+        return
+    }
+    c.JSON(http.StatusOK, users)
+}
+```
+Here’s what happens:
+
+- `Preload("Posts.Tags")`: This tells GORM to load the associated `Posts` for each `User` and also load the `Tags` associated with each `Post`. Instead of making multiple queries for users, posts, and tags, GORM combines these into fewer, optimized queries.
+
+Why Use Preload?
+- Performance Optimization: Reduces the number of queries, especially for nested relationships.
+- Convenience: Automatically handles loading related data without manual query chaining.
+
+**Real-World Scenario**
+Without Preload, if you fetched users, posts, and tags separately, you’d execute multiple
+
+```sql
+SELECT * FROM users;
+SELECT * FROM posts WHERE user_id IN (1, 2, 3);
+SELECT * FROM tags WHERE post_id IN (101, 102, 103);
+```
+With `Preload`, GORM fetches all related data in fewer queries:
+
+```sql
+SELECT * FROM users;
+SELECT * FROM posts WHERE user_id IN (1, 2, 3);
+SELECT * FROM tags WHERE post_id IN (101, 102, 103);
+```
+By leveraging `Preload`, the application minimizes database interactions and improves overall performance while keeping the code clean and simple.
 
 ## Notes
 
